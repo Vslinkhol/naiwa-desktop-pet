@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' file: data: blob:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; script-src 'self' file:">
+  <title>奶蛙</title>
+
+  <!--
+    样式分三层：
+      core/       共享层（布局、面板、占位奶蛙）
+      modes/*.css 各模式的专属样式，互不干扰
+  -->
+  <link rel="stylesheet" href="core/style.css">
+  <link rel="stylesheet" href="modes/relax.css">
+  <link rel="stylesheet" href="modes/work.css">
+</head>
+<body>
+
+<!--
+  舞台是整块透明画布。
+  布局：面板在上，奶蛙在下，整体靠右下角。
+  面板隐藏时用 display:none，这样 elementFromPoint 不会命中它，
+  底下透出去的区域就能正常把鼠标交给桌面。
+-->
+<div id="stage">
+
+  <!-- ══════════ 工作模式面板 ══════════ -->
+  <section id="panel" class="panel" hidden>
+    <header class="panel-head">
+      <nav class="tabs">
+        <button class="tab is-active" data-tab="notes">便签</button>
+        <button class="tab" data-tab="clips">剪贴板</button>
+      </nav>
+      <button id="panel-close" class="icon-btn" title="收起面板">✕</button>
+    </header>
+
+    <div class="panel-body">
+      <!-- ── 便签 / 待办 ── -->
+      <div class="pane" data-pane="notes">
+        <div class="note-input">
+          <textarea id="note-text" rows="2" placeholder="记点什么…（Ctrl + Enter 保存）"></textarea>
+          <button id="note-add" class="primary-btn">添加</button>
+        </div>
+        <ul id="note-list" class="note-list"></ul>
+        <p id="note-empty" class="empty-tip">还没有便签。写一条试试？</p>
+      </div>
+
+      <!-- ── 剪贴板历史 ── -->
+      <div class="pane" data-pane="clips" hidden>
+        <div class="clip-toolbar">
+          <input id="clip-search" type="search" placeholder="搜索历史记录…">
+          <button id="clip-clear" class="ghost-btn" title="清空未置顶的记录">清空</button>
+        </div>
+        <ul id="clip-list" class="clip-list"></ul>
+        <p id="clip-empty" class="empty-tip">复制点什么，这里就会记下来。</p>
+      </div>
+    </div>
+
+    <footer class="panel-foot">
+      <span id="cpu-badge" class="cpu-badge" title="系统 CPU 占用">CPU —</span>
+      <span class="privacy-tip">仅存本地</span>
+    </footer>
+  </section>
+
+  <!-- ══════════ 奶蛙本体 ══════════ -->
+  <!--
+    注意：#pet 是所有位移的宿主元素（跑步的左右移动就加在它身上）。
+    命中判定用的是它的 getBoundingClientRect()，而这个 API 会算上元素自身的
+    transform —— 所以奶蛙跑到哪儿，可点区域就跟到哪儿，不会出现「看得到点不到」。
+  -->
+  <div id="pet" class="pet">
+    <!-- 基础层：待机 / 大笑 / 被拖拽，同一时刻只显示一个 -->
+    <div id="pet-base" class="pet-layer pet-base"></div>
+    <!-- 特效层：流汗、打盹气泡等，叠加在基础层之上 -->
+    <div id="pet-fx" class="pet-layer pet-fx"></div>
+    <!-- 分身层：连点时的 2 个分身，由 pet.performWithClones 管理，平时是空的 -->
+    <div id="pet-clones" class="pet-layer pet-clones"></div>
+    <!-- 气泡台词 -->
+    <div id="pet-bubble" class="bubble" hidden></div>
+
+    <!--
+      右键操作窗（上下文菜单）。
+      单击右键弹出、光标移开 / Esc / 点任意一项收起；双击右键 = 切换模式。
+      由 app.js 的「右键操作窗」一节管理（含按模式显隐「打开面板」）。
+      ⚠️ 「退出奶蛙」走主进程的正规退出路径（window.naiwa.quit），
+         不能只关窗口 —— 奶蛙是托盘常驻程序，关窗口不等于退出。
+    -->
+    <div id="pet-menu" class="pet-menu" role="menu" hidden>
+      <button class="menu-item" type="button" role="menuitem" data-act="mode">切换模式</button>
+      <button class="menu-item" type="button" role="menuitem" data-act="panel">打开面板</button>
+      <div class="menu-sep" role="separator"></div>
+      <button class="menu-item is-danger" type="button" role="menuitem" data-act="quit">退出奶蛙</button>
+    </div>
+  </div>
+
+  <!-- 模式切换提示 -->
+  <div id="toast" class="toast" hidden></div>
+
+</div>
+
+<!--
+  刻意不用 ES module：file:// 协议下 Chromium 会因 CORS 拒绝加载 module，
+  而本项目坚持「零构建步骤」，所以用传统 script + window.Naiwa 命名空间。
+
+  ⚠️ 加载顺序有硬性依赖，不要随意调换：
+
+    1. 两份分清单必须在合并器之前 —— manifest.js 要把它们并起来，
+       读的时候它们得已经挂到 window 上了。
+    2. manifest.js 必须在 core/assets.js 之前 —— 后者在 IIFE 里就把
+       NAIWA_MANIFEST 读走了。
+    3. core/* 必须在 modes/* 之前 —— 模式模块要用 Naiwa.Pet / Naiwa.Audio。
+    4. modes/* 必须在 app.js 之前 —— app.js 启动时要按模式名查表分发。
+-->
+<script src="../assets/manifest.relax.js"></script>
+<script src="../assets/manifest.work.js"></script>
+<script src="../assets/manifest.js"></script>
+
+<script src="core/audio.js"></script>
+<script src="core/assets.js"></script>
+<script src="core/pet.js"></script>
+
+<script src="panels.js"></script>
+
+<script src="modes/relax.js"></script>
+<script src="modes/work.js"></script>
+
+<script src="app.js"></script>
+
+</body>
+</html>

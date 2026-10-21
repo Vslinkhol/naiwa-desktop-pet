@@ -1,0 +1,35 @@
+MIT License
+
+Copyright (c) 2026 Vslinkhol
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+────────────────────────────────────────────────────────────────────────────
+
+注意 / Note
+
+上面这份 MIT 许可覆盖的是**代码**（main.js、preload.js、lib/、renderer/、
+测试脚本及文档）。
+
+`assets/` 目录下的**奶蛙形象与影音素材**（图片、音频、序列帧、原始视频）
+版权归作者所有，仅供在本项目中使用；如需用于你自己的项目，请先联系作者。
+
+The MIT license above covers the **source code**. The Naiwa character and all
+media assets under `assets/` remain the property of the author and are licensed
+for use within this project only.

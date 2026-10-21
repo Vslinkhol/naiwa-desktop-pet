@@ -1,0 +1,179 @@
+/* ══════════════════════════════════════════════════════════════
+   工作模式专属样式  ← 🅱 的文件
+
+   规矩：**模式专属的样式写在这里，不要往 renderer/core/style.css 里加。**
+   核心层是所有模式共用的地基，往里加东西会影响解压模式。
+
+   面板（便签 / 剪贴板）的主体样式在 core/style.css 里（拆分时原样搬过去的），
+   这里只放三样东西：
+     1. **必须修的**：`hidden` 属性对 `.panel` / `.pane` 失效的问题（见下）
+     2. 工作模式新加的元素的样式（数据异常横幅、页脚注、隐私开关、编辑框）
+     3. 对核心层样式的小幅覆盖（预览行数变量、清空确认态）
+   ══════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════
+   ① 修一个「看着没事、其实面板永远显示」的坑
+
+   HTML 的 `hidden` 属性只靠浏览器默认样式表里的 `[hidden] { display: none }`
+   生效，而**作者样式永远压过浏览器默认样式**——`.panel { display: flex }`
+   和 `.pane { display: flex }` 一写，`hidden` 就完全不起作用了。
+
+   后果不是「不好看」，是这个模式的核心交互直接失效：
+     · 面板永远展开，点奶蛙看不出任何变化；
+     · 两个标签页同时显示，便签和剪贴板叠在一起。
+
+   而且它还会破坏点击穿透的前提——`app.js` 用 `elementFromPoint` 判断
+   鼠标是不是压在面板上。面板如果一直「显示」，窗口就会在看不见的地方
+   拦截鼠标，用户会点不到桌面图标。
+
+   ── 现状更新（主控裁决后）──
+   `core/style.css` 已经补了全局的 `[hidden] { display: none !important; }`，
+   **根因已在共享层修掉**，下面这两条现在是冗余的双保险。
+
+   保留它们的理由：这条坑一旦复发，症状是「用户点不到桌面图标」——
+   代价很高而且完全看不出原因。两行 CSS 换一个兜底，划算。
+   **但注释里不要再写「不能删」了**（旧版本这么写过），那会误导人以为
+   核心层还没修。想删是安全的。
+   ══════════════════════════════════════════════════════════════ */
+
+#panel[hidden] { display: none; }
+#panel [hidden] { display: none; }
+
+/* ══════════════ ② 数据异常横幅 ══════════════ */
+
+/*
+   数据文件损坏（或某些记录缺字段）时，在面板顶部说清楚。
+   不弹窗、不遮挡：它只占一行到两行，用户看完可以 ✕ 掉。
+
+   注意它必须**留在面板边界之内**——超出面板的部分不参与命中判定，
+   点上去会穿透到桌面，体验很怪（见 docs/02-工作模式.md 第 5.2 节）。
+*/
+.data-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 10px 0;
+  padding: 7px 8px 7px 10px;
+  border-radius: 10px;
+  background: rgba(214, 92, 92, 0.10);
+  border: 1px solid rgba(214, 92, 92, 0.28);
+  color: #A8443F;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.data-warn-text { flex: 1; word-break: break-word; }
+
+.data-warn-close {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  color: inherit;
+}
+.data-warn-close:hover { background: rgba(214, 92, 92, 0.16); color: #8E332E; }
+
+/* ══════════════ ③ 列表页脚注 ══════════════ */
+
+/* 「共 N 条 / 已显示 M 条，继续往下滚加载更多 / 建议归档」 */
+.list-foot {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* ══════════════ ④ 剪贴板：隐私行 ══════════════ */
+
+/*
+   面板里的「记录剪贴板历史」开关。托盘菜单里也有一个，
+   但用户在当前上下文（正在看剪贴板历史）就能关掉，比让他去翻托盘诚实。
+
+   只读文本 / 仅存本机 / 明文 / 不联网 —— 这四条必须让用户看得到，
+   不能让人以为内容被加密了。
+*/
+.clip-privacy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: rgba(74, 63, 53, 0.04);
+  font-size: 10.5px;
+  color: var(--ink-soft);
+}
+
+.privacy-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.privacy-switch input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.privacy-note {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ══════════════ ⑤ 便签：双击编辑 ══════════════ */
+
+.note-item.is-editing { border-color: var(--accent); background: var(--accent-soft); }
+
+.note-edit {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: #fff;
+  outline: none;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ══════════════ ⑥ 对核心层样式的小幅覆盖 ══════════════ */
+
+/*
+   预览行数由 `modes/work.js` 的 CONFIG.CLIP_PREVIEW_LINES 决定，
+   面板会把它写成这个变量（`panels.js` 的 configure()）。
+   核心层的 `.clip-item .text` 写死了 3 行，这里用变量覆盖。
+*/
+.clip-item .text {
+  -webkit-line-clamp: var(--clip-lines, 3);
+}
+
+/* 「清空」的二次确认态：变红、变显眼，让用户知道下一步真的会删 */
+.ghost-btn.is-confirming {
+  color: #fff;
+  background: #D65C5C;
+  border-color: #D65C5C;
+  font-weight: 600;
+}
+.ghost-btn.is-confirming:hover {
+  color: #fff;
+  background: #C74E4E;
+  border-color: #C74E4E;
+}
+
+/* 「已置顶」小标签 */
+.pin-tag {
+  color: #C4562B;
+  font-weight: 600;
+}

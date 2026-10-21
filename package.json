@@ -1,0 +1,62 @@
+{
+  "name": "naiwa-pet",
+  "version": "1.0.0",
+  "description": "奶蛙桌宠 — Naiwa Desktop Pet：解压模式 / 工作模式双模式桌面宠物（Windows）",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/ensure-userdata.js && electron --no-sandbox .",
+    "start:force": "node scripts/ensure-userdata.js && set NAIWA_ALLOW_MULTI=1&& electron --no-sandbox .",
+    "start:safe": "node scripts/ensure-userdata.js && electron .",
+    "dev": "node scripts/ensure-userdata.js && electron --no-sandbox . --dev",
+    "check": "node __verify.js",
+    "probe": "electron --no-sandbox __probe.js",
+    "dist": "electron-builder --win --x64",
+    "dist:dir": "electron-builder --win --x64 --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "author": "Vslinkhol",
+  "license": "MIT",
+  "build": {
+    "appId": "com.vslinkhol.naiwa-desktop-pet",
+    "productName": "Naiwa Desktop Pet",
+    "copyright": "Copyright © 2026 Vslinkhol",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**/*",
+      "renderer/**/*",
+      "assets/**/*",
+      "!assets/解压模式素材/**",
+      "!assets/工作模式素材/**",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "奶蛙桌宠",
+      "uninstallDisplayName": "奶蛙桌宠 ${version}",
+      "artifactName": "naiwa-desktop-pet-${version}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "naiwa-desktop-pet-${version}-portable.${ext}"
+    }
+  }
+}
