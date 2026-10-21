@@ -18,7 +18,7 @@
 
 ## 📥 下载安装
 
-到 **[Releases 页面](../../releases/latest)** 下载最新版，两个文件二选一：
+到 **[Releases 页面](https://github.com/Vslinkhol/naiwa-desktop-pet/releases/latest)** 下载最新版，两个文件二选一：
 
 | 文件 | 适合谁 | 说明 |
 | --- | --- | --- |
