@@ -21,7 +21,7 @@ const os = require('os');
 const { frogIconPNG } = require('./lib/png');
 
 /**
- * ★ 必须在任何 Electron 窗口/Chromium 初始化之前，确保 userData 目录存在。
+ * ★ 必须在任何 Electron 窗口/Chromium 初始化之前，确保 userData 目录存在**且可写**。
  *
  * 为什么要显式建：在本机（Windows + Electron 33.4.11）实测，当
  * `%APPDATA%\naiwa-pet` **不存在**时，Chromium 初始化 userData 会以
@@ -34,13 +34,48 @@ const { frogIconPNG } = require('./lib/png');
  * 这个调用必须放在文件靠前的位置：实测崩溃发生在 main.js **求值完成之后**，
  * 所以在这里把目录建好，Chromium 就能正常走下去。
  * 目录已存在时 mkdirSync 是空操作，没有副作用。
+ *
+ * ⚠️ 第六次会话补充：**「建得出来」不等于「写得进去」**。
+ * 遇到过目录存在、ACL 正常、但进程写不进去的机器，症状同样是
+ * 「双击后什么都没出现」。所以这里不只建目录，还**真的写一个探针文件**；
+ * 写不进去就换备用目录，而不是等 Chromium 崩掉。
  */
-try {
-  const ud = path.join(app.getPath('appData'), app.getName());
-  fs.mkdirSync(ud, { recursive: true });
-} catch (e) {
-  // 建不出来也不能让启动挂掉：后面还会走 Electron 自己的逻辑
-  console.error('[奶蛙] 预建 userData 目录失败:', e.message);
+const DEFAULT_USER_DATA = path.join(app.getPath('appData'), app.getName());
+/** 默认目录写不进时的备用位置（同一个用户下另一个足够普通的目录）。 */
+const FALLBACK_USER_DATA = path.join(process.env.LOCALAPPDATA || app.getPath('appData'), 'naiwa-pet-data');
+
+/**
+ * 目录能不能真的写进去？返回 `{ ok, error }`。
+ *
+ * ⚠️ 两条教训（第六次会话踩出来的）：
+ *  1. **必须把真实错误带出去**。原来只说「没有写入权限」，看不到 errno 和路径，
+ *     排查时白绕一大圈 —— 实测用户机器上目录其实可写，是探测本身误报。
+ *  2. **不要用「写完再删掉」判定**。杀软扫描刚写入的文件时删除会短暂失败（EPERM），
+ *     那是假阴性；只要**写入成功**就算可写（探针文件留着无所谓）。
+ */
+function probeWritable(dir) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, '.write-probe'), 'ok');
+    return { ok: true, error: null, dir };
+  } catch (e) {
+    return { ok: false, error: (e && (e.code ? e.code + ': ' + e.message : e.message)) || String(e), dir };
+  }
+}
+
+/** 探测结果：单实例锁失败时要用它区分「已在运行」和「目录写不进」 */
+let USER_DATA_PROBE = probeWritable(DEFAULT_USER_DATA);
+if (!USER_DATA_PROBE.ok) {
+  console.error('[奶蛙] 默认数据目录写不进去：' + USER_DATA_PROBE.error + ' （' + DEFAULT_USER_DATA + '）');
+  const alt = probeWritable(FALLBACK_USER_DATA);
+  if (alt.ok) {
+    app.setPath('userData', FALLBACK_USER_DATA);
+    USER_DATA_PROBE = { ok: true, error: null, dir: FALLBACK_USER_DATA, fellBackFrom: DEFAULT_USER_DATA };
+    console.warn('[奶蛙] 已改用备用数据目录：' + FALLBACK_USER_DATA);
+  } else {
+    console.error('[奶蛙] 备用数据目录也写不进去：' + alt.error + ' （' + FALLBACK_USER_DATA + '）');
+    USER_DATA_PROBE = { ok: false, error: USER_DATA_PROBE.error + '；备用目录同样失败：' + alt.error, dir: DEFAULT_USER_DATA };
+  }
 }
 
 const WIN_W = 460;
@@ -483,52 +518,11 @@ function createTray() {
 const ALLOW_MULTI = process.env.NAIWA_ALLOW_MULTI === '1';
 
 /**
- * 数据目录到底能不能写？
+ * 真正把奶蛙养起来（单实例检查通过、或用户选择「仍然启动一只」之后调用）。
  *
- * 单实例锁失败时**必须区分两种原因**，否则会给出误导性的提示：
- *   · 真的有一只奶蛙在跑      → 「已经在运行」是对的
- *   · 数据目录建不出来/写不进 → Chromium 建不出锁文件，报的也是「已经在运行」
- *
- * 第六次会话实测抓到过第二种（打包版在受限环境里启动）：
- *   `Lock file can not be created! Error code: 5`（拒绝访问）
- * 然后弹出「奶蛙已经在运行，或者上一次的进程卡住了」——
- * 用户照着提示去任务管理器找残留进程，永远找不到，因为根本没有。
+ * 抽成函数是因为它现在有两条入口：正常通过 + 锁失败后用户坚持启动。
  */
-function dataDirWritable() {
-  try {
-    const ud = app.getPath('userData');
-    fs.mkdirSync(ud, { recursive: true });
-    const probe = path.join(ud, '.write-probe');
-    fs.writeFileSync(probe, 'ok');
-    fs.unlinkSync(probe);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-if (!ALLOW_MULTI && !app.requestSingleInstanceLock()) {
-  const writable = dataDirWritable();
-  const ud = app.getPath('userData');
-  const msg = writable
-    ? '奶蛙已经在运行，或者上一次的进程卡住了。\n\n' +
-      '· 在托盘图标上右键 →「退出奶蛙」，或到任务管理器里结束残留的进程。\n' +
-      '· 如果提示「拒绝访问」杀不掉，重启系统即可清除。\n' +
-      '· 命令行用户也可以设 NAIWA_ALLOW_MULTI=1（或 npm run start:force）强行启动。'
-    : '奶蛙的数据目录没有写入权限，启动被挡住了。\n\n' +
-      '数据目录：' + ud + '\n\n' +
-      '· 这**不是**「已经在运行」——多半是安全软件或目录权限的问题。\n' +
-      '· 可以试试：以管理员身份运行一次；或检查上面这个目录的权限。\n' +
-      '· 想先跑起来：设环境变量 NAIWA_ALLOW_MULTI=1 再启动（会跳过单实例检查）。';
-  console.error('[奶蛙] 启动中止（数据目录可写=' + writable + '）：' + msg.replace(/\n+/g, ' '));
-  // 必须弹框：桌宠是双击启动的，没有控制台可看。
-  // 只打 stderr 的话，用户看到的就是「双击后什么都没发生」——最糟的失败模式。
-  try { dialog.showErrorBox('奶蛙启动中止', msg); } catch { /* 弹不出来也不能再抛 */ }
-  app.quit();
-} else {
-  if (ALLOW_MULTI) {
-    console.warn('[奶蛙] NAIWA_ALLOW_MULTI=1：跳过单实例检查，本次可能同时有两只奶蛙。');
-  }
+function startApp() {
   app.on('second-instance', () => {
     if (win) { win.show(); win.focus(); }
   });
@@ -540,6 +534,70 @@ if (!ALLOW_MULTI && !app.requestSingleInstanceLock()) {
     startClipboardWatch();
     startCpuWatch();
   });
+}
+
+/**
+ * 数据目录到底能不能写？
+ *
+ * 单实例锁失败时**必须区分两种原因**，否则会给出误导性的提示：
+ *   · 真的有一只奶蛙在跑      → 「已经在运行」是对的
+ *   · 数据目录写不进去        → Chromium 建不出锁文件，报的也是「已经在运行」
+ *
+ * 第六次会话实测抓到过第二种（打包版在受限环境里启动）：
+ *   `Lock file can not be created! Error code: 5`（拒绝访问）
+ * 然后弹出「奶蛙已经在运行，或者上一次的进程卡住了」——
+ * 用户照着提示去任务管理器找残留进程，永远找不到，因为根本没有。
+ *
+ * ⚠️ 而且**判断依据要可靠**：原来这里现写现删探针文件，删除被拦（杀软扫新文件）
+ * 就被判成「目录不可写」，实测误报过一次（用户机器上目录明明可写，ACL 也正常，
+ * 结果弹了错误的框）。现在直接用启动最前面那次探测的结果 —— 它只要求写入成功，
+ * 而且把真实 errno 一起带出来。
+ */
+if (!ALLOW_MULTI && !app.requestSingleInstanceLock()) {
+  const writable = USER_DATA_PROBE.ok;
+  const ud = USER_DATA_PROBE.dir || app.getPath('userData');
+  const msg = writable
+    ? '奶蛙已经在运行，或者上一次的进程卡住了。\n\n' +
+      '· 在托盘图标上右键 →「退出奶蛙」，或到任务管理器里结束残留的进程。\n' +
+      '· 如果提示「拒绝访问」杀不掉，重启系统即可清除。\n' +
+      '· 命令行用户也可以设 NAIWA_ALLOW_MULTI=1（或 npm run start:force）强行启动。'
+    : '奶蛙的数据目录写不进去，启动被挡住了。\n\n' +
+      '数据目录：' + ud + '\n' +
+      '失败原因：' + USER_DATA_PROBE.error + '\n\n' +
+      '· 这**不是**「已经在运行」——是权限或安全软件的问题。\n' +
+      '· 可以试试：检查上面这个目录的权限；关掉/放行拦截它的安全软件。\n' +
+      '· 想先跑起来：设环境变量 NAIWA_ALLOW_MULTI=1 再启动（会跳过单实例检查）。';
+  console.error('[奶蛙] 启动中止（数据目录可写=' + writable + '，原因=' + USER_DATA_PROBE.error + '）：' + msg.replace(/\n+/g, ' '));
+  // 必须弹框：桌宠是双击启动的，没有控制台可看。
+  // 只打 stderr 的话，用户看到的就是「双击后什么都没发生」——最糟的失败模式。
+  //
+  // ⚠️ 但**不能只给「确定」**：单实例锁失败的原因常常是上一次的残留状态
+  //（被强杀的进程、上一次崩在启动中的实例），过一会儿就自己好了。
+  // 只让用户「确定 → 退出」，他就被永久挡在门外，连试都试不了。
+  // 所以给两个选择：仍然启动一只 / 退出。默认选「退出」，不鼓励真的养两只。
+  let choice = 1;
+  try {
+    choice = dialog.showMessageBoxSync({
+      type: 'warning',
+      title: '奶蛙启动中止',
+      message: writable ? '奶蛙已经在运行，或者上一次的进程卡住了。' : '奶蛙的数据目录写不进去。',
+      detail: msg,
+      buttons: ['仍然启动一只', '退出'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    });
+  } catch { choice = 1; /* 弹不出来就当作退出 */ }
+  if (choice !== 0) { app.quit(); }
+  else {
+    console.warn('[奶蛙] 用户选择「仍然启动一只」：跳过单实例检查。');
+    startApp();
+  }
+} else {
+  if (ALLOW_MULTI) {
+    console.warn('[奶蛙] NAIWA_ALLOW_MULTI=1：跳过单实例检查，本次可能同时有两只奶蛙。');
+  }
+  startApp();
 }
 
 // 托盘常驻程序：关掉窗口不等于退出，只在托盘「退出」时才真正结束

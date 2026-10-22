@@ -1,6 +1,6 @@
 {
   "name": "naiwa-pet",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "奶蛙桌宠 — Naiwa Desktop Pet：解压模式 / 工作模式双模式桌面宠物（Windows）",
   "main": "main.js",
   "scripts": {
@@ -28,6 +28,12 @@
       "buildResources": "build"
     },
     "electronDist": "node_modules/electron/dist",
+    "extraFiles": [
+      {
+        "from": "build/launcher.cmd",
+        "to": "启动奶蛙.cmd"
+      }
+    ],
     "files": [
       "main.js",
       "preload.js",
@@ -42,9 +48,11 @@
       "icon": "build/icon.ico",
       "target": [
         { "target": "nsis", "arch": ["x64"] },
+        { "target": "zip", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }
       ]
     },
+    "artifactName": "naiwa-desktop-pet-${version}-win-x64.${ext}",
     "nsis": {
       "oneClick": false,
       "perMachine": false,
