@@ -18,13 +18,13 @@
 
 ## 📥 下载安装
 
-到 **[Releases 页面](https://github.com/Vslinkhol/naiwa-desktop-pet/releases/latest)** 下载最新版，三个文件挑一个：
+到 **[Releases 页面](https://github.com/Vslinkhol/naiwa-desktop-pet/releases/latest)** 下载最新版，三个文件挑一个（文件名里的版本号会变，认后缀即可）：
 
 | 文件 | 适合谁 | 说明 |
 | --- | --- | --- |
-| **`naiwa-desktop-pet-1.0.1-setup.exe`** | 大多数人 | **安装版**：双击 → 下一步 → 装完自动启动，桌面和开始菜单会有「奶蛙桌宠」 |
-| **`naiwa-desktop-pet-1.0.1-win-x64.zip`** | 想最省事 / 换机器 | **解压即用**：解压到任意目录，双击里面的 `Naiwa Desktop Pet.exe`。不写注册表、不装任何东西，删掉文件夹即卸载 |
-| `naiwa-desktop-pet-1.0.1-portable.exe` | 放 U 盘 | **免安装单文件**：双击就跑。它每次都要把自己解压到 `%TEMP%`，个别机器上会被安全软件拦住（报 `Error writing temporary file`），遇到就用上面那个 zip |
+| **`…-setup.exe`** | 大多数人 | **安装版**：双击 → 下一步 → 装完自动启动，桌面和开始菜单会有「奶蛙桌宠」 |
+| **`…-win-x64.zip`** | 想最省事 / 换机器 | **解压即用**：解压到任意目录，双击里面的 `Naiwa Desktop Pet.exe`。不写注册表、不装任何东西，删掉文件夹即卸载 |
+| `…-portable.exe` | 放 U 盘 | **免安装单文件**：双击就跑。它每次都要把自己解压到 `%TEMP%`，个别机器上会被安全软件拦住（报 `Error writing temporary file`），遇到就用上面那个 zip |
 
 安装完奶蛙会出现在**主屏右下角**。它**不在任务栏显示**，常驻在托盘。
 

@@ -1,6 +1,6 @@
 {
   "name": "naiwa-pet",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "奶蛙桌宠 — Naiwa Desktop Pet：解压模式 / 工作模式双模式桌面宠物（Windows）",
   "main": "main.js",
   "scripts": {
